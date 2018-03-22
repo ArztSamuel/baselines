@@ -5,7 +5,41 @@ import argparse
 from baselines import logger
 from baselines.common.atari_wrappers import make_atari
 
+from pynput import keyboard
+
+def callback(lcl, _glb):
+    global abort_training
+
+    # stop training on input
+    return abort_training
+
+def on_press(key):
+    global abort_training
+    global q_pressed
+
+    if key == keyboard.KeyCode.from_char('q'):
+        q_pressed = True
+    elif key == keyboard.Key.esc and q_pressed:
+        print("Aborting Training...")
+        abort_training = True
+        return False
+
+def on_release(key):
+    global q_pressed
+
+    if key == keyboard.KeyCode.from_char('q'):
+        q_pressed = False
+
 def main():
+    global abort_training
+    global q_pressed
+    
+    abort_training = False
+    q_pressed = False
+    
+    listener = keyboard.Listener(on_press=on_press, on_release=on_release)
+    listener.start()
+    
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--env', help='environment ID', default='BreakoutNoFrameskip-v4')
     parser.add_argument('--seed', help='RNG seed', type=int, default=0)
@@ -35,11 +69,15 @@ def main():
         learning_starts=10000,
         target_network_update_freq=1000,
         gamma=0.99,
-        prioritized_replay=bool(args.prioritized)
-    )
-    # act.save("pong_model.pkl") XXX
+        print_freq=1,
+        prioritized_replay=bool(args.prioritized),
+        callback=callback
+    )    
+    print("Saving model to pong_model.pkl")
+    act.save("pong_model.pkl")
     env.close()
-
 
 if __name__ == '__main__':
     main()
+            
+
