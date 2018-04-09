@@ -158,18 +158,24 @@ def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, e
 
     nbatch = nenvs*nsteps
     tstart = time.time()
-    for update in range(1, total_timesteps//nbatch+1):
-        obs, states, rewards, masks, actions, values = runner.run()
-        policy_loss, value_loss, policy_entropy = model.train(obs, states, rewards, masks, actions, values)
-        nseconds = time.time()-tstart
-        fps = int((update*nbatch)/nseconds)
-        if update % log_interval == 0 or update == 1:
-            ev = explained_variance(values, rewards)
-            logger.record_tabular("nupdates", update)
-            logger.record_tabular("total_timesteps", update*nbatch)
-            logger.record_tabular("fps", fps)
-            logger.record_tabular("policy_entropy", float(policy_entropy))
-            logger.record_tabular("value_loss", float(value_loss))
-            logger.record_tabular("explained_variance", float(ev))
-            logger.dump_tabular()
-    env.close()
+    try:
+        for update in range(1, total_timesteps//nbatch+1):
+            obs, states, rewards, masks, actions, values = runner.run()
+            policy_loss, value_loss, policy_entropy = model.train(obs, states, rewards, masks, actions, values)
+            nseconds = time.time()-tstart
+            fps = int((update*nbatch)/nseconds)
+            if update % log_interval == 0 or update == 1:
+                ev = explained_variance(values, rewards)
+                logger.record_tabular("nupdates", update)
+                logger.record_tabular("total_timesteps", update*nbatch)
+                logger.record_tabular("fps", fps)
+                logger.record_tabular("policy_entropy", float(policy_entropy))
+                logger.record_tabular("value_loss", float(value_loss))
+                logger.record_tabular("explained_variance", float(ev))
+                logger.dump_tabular()
+    except Exception as e:
+        print("Exception encountered during training: " + str(e))
+    except KeyboardInterrupt:
+        print("Aborted training.")
+
+    return model # return model, so we can save it
