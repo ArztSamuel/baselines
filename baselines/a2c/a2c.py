@@ -131,9 +131,11 @@ class Runner(object):
         mb_dones = mb_dones[:, 1:]
         last_values = self.model.value(self.obs, self.states, self.dones).tolist()
         #discount/bootstrap off value fn
+        true_rewards = []
         for n, (rewards, dones, value) in enumerate(zip(mb_rewards, mb_dones, last_values)):
             rewards = rewards.tolist()
             dones = dones.tolist()
+            true_rewards.extend(rewards)
             if dones[-1] == 0:
                 rewards = discount_with_dones(rewards+[value], dones+[0], self.gamma)[:-1]
             else:
@@ -143,9 +145,10 @@ class Runner(object):
         mb_actions = mb_actions.flatten()
         mb_values = mb_values.flatten()
         mb_masks = mb_masks.flatten()
-        return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values
+        return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values, true_rewards
 
-def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, lrschedule='linear', epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100):
+def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, 
+    lrschedule='linear', epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100, callback=None):
     tf.reset_default_graph()
     set_global_seeds(seed)
 
@@ -158,21 +161,33 @@ def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, e
 
     nbatch = nenvs*nsteps
     tstart = time.time()
+    sps = 0
+    ev = 0
+    policy_entropy = 0
+    policy_loss = 0
+    value_loss = 0
+    true_rewards = [] # the undiscounted / bootstrapped rewards, i.e. the rewards as they were returns by the environment
     try:
         for update in range(1, total_timesteps//nbatch+1):
-            obs, states, rewards, masks, actions, values = runner.run()
+
+            obs, states, rewards, masks, actions, values, ret_rewards = runner.run()
+            true_rewards.extend(ret_rewards)
             policy_loss, value_loss, policy_entropy = model.train(obs, states, rewards, masks, actions, values)
             nseconds = time.time()-tstart
-            fps = int((update*nbatch)/nseconds)
+            sps = int((update*nbatch)/nseconds)
             if update % log_interval == 0 or update == 1:
                 ev = explained_variance(values, rewards)
                 logger.record_tabular("nupdates", update)
                 logger.record_tabular("total_timesteps", update*nbatch)
-                logger.record_tabular("fps", fps)
+                logger.record_tabular("sps", sps)
                 logger.record_tabular("policy_entropy", float(policy_entropy))
                 logger.record_tabular("value_loss", float(value_loss))
                 logger.record_tabular("explained_variance", float(ev))
                 logger.dump_tabular()
+                if callback is not None:
+                    if callback(locals(), globals()):
+                        break
+                true_rewards = []
     except Exception as e:
         print("Exception encountered during training: " + str(e))
     except KeyboardInterrupt:

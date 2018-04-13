@@ -220,14 +220,21 @@ def learn(env,
     saved_mean_reward = None
     obs = env.reset()
     reset = True
+    done = False
     with tempfile.TemporaryDirectory() as td:
         model_saved = False
         model_file = os.path.join(td, "model")
         try:
-            for t in range(max_timesteps):
+            episode_length = 0
+            for t in range(max_timesteps):                
                 if callback is not None:
                     if callback(locals(), globals()):
                         break
+
+                if (reset):
+                    episode_length = 0
+                episode_length += 1
+
                 # Take action and update exploration to the newest value
                 kwargs = {}
                 if not param_noise:
