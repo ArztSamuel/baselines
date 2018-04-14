@@ -44,7 +44,7 @@ def _cnn_to_mlp(convs, hiddens, dueling, inpt, num_actions, scope, reuse=False, 
         with tf.variable_scope("action_value"):
             action_out = conv_out
             for hidden in hiddens:
-                action_out = layers.fully_connected(action_out, num_outputs=hidden, activation_fn=tf.nn.relu)
+                action_out = layers.fully_connected(action_out, num_outputs=hidden, activation_fn=None)
                 if layer_norm:
                     action_out = layers.layer_norm(action_out, center=True, scale=True)
                 action_out = tf.nn.relu(action_out)
