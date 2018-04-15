@@ -102,6 +102,8 @@ class Runner(object):
         self.nsteps = nsteps
         self.states = model.initial_state
         self.dones = [False for _ in range(nenv)]
+        self.episode_rewards = []
+        self.running_episode_rewards = [0 for _ in range(nenv)]
 
     def run(self):
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones = [],[],[],[],[]
@@ -118,6 +120,11 @@ class Runner(object):
             for n, done in enumerate(dones):
                 if done:
                     self.obs[n] = self.obs[n]*0
+                    self.episode_rewards.append(self.running_episode_rewards[n])
+                    self.running_episode_rewards[n] = 0
+                else:
+                    self.running_episode_rewards[n] += rewards[n]
+                    
             self.obs = obs
             mb_rewards.append(rewards)
         mb_dones.append(self.dones)
